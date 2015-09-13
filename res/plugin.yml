@@ -1,0 +1,20 @@
+name: EndlessOnline
+description: Send your server online to SQL server
+main: ru.endlesscode.endlessonline.EndlessOnline
+version: 1.2
+author: OsipXD
+website: http://endlesscode.ru/
+
+commands:
+   eonline:
+      description: EndlessOnline commands.
+      usage: /<command> reload - Reload plugin.
+      aliases: [eon]
+
+permissions:
+    eonline.refresh:
+        description: Allows you refresh user online num
+        default: op
+    eonline.reload:
+        description: Allows you reload plugin
+        default: op

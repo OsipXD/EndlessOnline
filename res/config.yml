@@ -1,0 +1,11 @@
+# Server field in table
+server-name: server
+
+# SQL Connection
+sql:
+  host: localhost
+  port: 3306
+  user: root
+  pass: pass
+  db: minecraft
+  table: endless_online
