@@ -14,11 +14,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 class PlayerListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        EndlessOnline.getInstance().updateOnline();
+        EndlessOnline.getInstance().updateOnline(true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        EndlessOnline.getInstance().updateOnline();
+        EndlessOnline.getInstance().updateOnline(true);
     }
 }

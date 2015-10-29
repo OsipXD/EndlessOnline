@@ -7,6 +7,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by OsipXD on 13.09.2015
@@ -31,7 +35,7 @@ public class EndlessOnline extends JavaPlugin {
         this.initSQL();
 
         PluginManager pm = this.getServer().getPluginManager();
-        this.updateOnline();
+        this.updateOnline(false);
         pm.registerEvents(new PlayerListener(), this);
 
         if (this.sql.isKilled()) {
@@ -44,7 +48,7 @@ public class EndlessOnline extends JavaPlugin {
             this.getLogger().warning("Please configure your SQL connection");
         } else {
             this.getLogger().info("Setting status to offline...");
-            this.sql.updateOnline(-1);
+            this.sql.clearOnline();
         }
     }
 
@@ -66,7 +70,7 @@ public class EndlessOnline extends JavaPlugin {
             if (args[0].equalsIgnoreCase("refresh")) {
                 if (player == null || player.hasPermission("eonline.refresh")) {
                     sender.sendMessage("Updating online value...");
-                    this.updateOnline();
+                    this.updateOnline(false);
                     sender.sendMessage("New online: " + ChatColor.DARK_GREEN + this.online + "/" + Bukkit.getMaxPlayers());
                 }
             } else if (args[0].equalsIgnoreCase("reload")) {
@@ -74,11 +78,11 @@ public class EndlessOnline extends JavaPlugin {
                     sender.sendMessage("You are not able to perform this command.");
                 } else {
                     sender.sendMessage("Reloading...");
-                    this.sql.updateOnline(-1);
+                    this.sql.clearOnline();
                     this.sql.reloadConfig();
                     this.reloadConfig();
                     this.initSQL();
-                    this.updateOnline();
+                    this.updateOnline(false);
 
                     if (this.sql.isKilled()) {
                         this.getServer().getPluginManager().disablePlugin(this);
@@ -109,12 +113,27 @@ public class EndlessOnline extends JavaPlugin {
         }
     }
 
-    public void updateOnline() {
-        if (this.sql.isKilled()) {
-            return;
-        }
+    public void updateOnline(boolean async) {
+        BukkitRunnable refresher = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (sql.isKilled()) {
+                    return;
+                }
 
-        this.online = this.getServer().getOnlinePlayers().size();
-        this.sql.updateOnline(this.online);
+                List<String> playerList = new ArrayList<>();
+                for (Player player : EndlessOnline.getInstance().getServer().getOnlinePlayers()) {
+                    playerList.add(player.getName());
+                }
+
+                sql.updateOnline(online = getServer().getOnlinePlayers().size(), playerList);
+            }
+        };
+
+        if (async) {
+            refresher.runTaskLaterAsynchronously(this, 10);
+        } else {
+            refresher.run();
+        }
     }
 }

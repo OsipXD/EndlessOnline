@@ -2,7 +2,6 @@ package ru.endlesscode.endlessonline;
 
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ import java.util.List;
  * All rights reserved 2014 - 2015 © «EndlessCode Group»
  */
 class SQL {
-    private final Thread executor = new SQLExecutor();
+    private final Thread executor = new Thread(new SQLExecutor());
 
     private final String url;
     private final String username;
@@ -51,12 +50,11 @@ class SQL {
         this.config = EndlessOnline.getInstance().getConfig();
     }
 
-    public void updateOnline(int online) {
-        List<String> playerList = new ArrayList<>();
-        for (Player player : EndlessOnline.getInstance().getServer().getOnlinePlayers()) {
-            playerList.add(player.getName());
-        }
+    public void clearOnline() {
+        this.updateOnline(-1, new ArrayList<String>(0));
+    }
 
+    public void updateOnline(int online, List<String> playerList) {
         this.query = "UPDATE " + this.config.getString("sql.table")
                 + " SET online = " + online
                 + ", max_online = " + Bukkit.getMaxPlayers()
@@ -131,7 +129,7 @@ class SQL {
         return this.killed;
     }
 
-    private class SQLExecutor extends Thread {
+    private class SQLExecutor implements Runnable {
         @Override
         public void run() {
             try {
