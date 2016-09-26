@@ -1,3 +1,6 @@
+# Plugin state
+enabled: true
+
 # Server field in table
 server-name: server
 
@@ -9,3 +12,19 @@ sql:
   pass: pass
   db: minecraft
   table: endless_online
+
+# Settings for SSH Tunelling
+tunnel:
+  enabled: false
+  host: ssh.domain.com
+  port:
+    ssh: 22
+    local: 3309
+  user: root
+  pass: pass
+
+# Shown message
+message: "&lOnline now: &2%d/%d"
+
+# Plugin version
+version: 2.2

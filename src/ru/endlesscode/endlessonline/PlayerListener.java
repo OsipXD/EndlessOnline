@@ -9,7 +9,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 /**
  * Created by OsipXD on 13.09.2015
  * It is part of the EndlessOnline.
- * All rights reserved 2014 - 2015 © «EndlessCode Group»
+ * All rights reserved 2014 - 2016 Â© Â«EndlessCode GroupÂ»
  */
 class PlayerListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)

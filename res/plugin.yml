@@ -1,7 +1,7 @@
 name: EndlessOnline
 description: Send your server online to SQL server
 main: ru.endlesscode.endlessonline.EndlessOnline
-version: 2.1
+version: 2.5
 author: OsipXD
 website: http://endlesscode.ru/
 

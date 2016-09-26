@@ -1,5 +1,6 @@
 package ru.endlesscode.endlessonline;
 
+import com.jcraft.jsch.JSchException;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -10,7 +11,7 @@ import java.util.List;
 /**
  * Created by OsipXD on 13.09.2015
  * It is part of the EndlessOnline.
- * All rights reserved 2014 - 2015 © «EndlessCode Group»
+ * All rights reserved 2014 - 2016 Â© Â«EndlessCode GroupÂ»
  */
 class SQL {
     private final Thread executor = new Thread(new SQLExecutor());
@@ -18,17 +19,78 @@ class SQL {
     private final String url;
     private final String username;
     private final String password;
+    private final String table;
+    private final String server;
 
     private FileConfiguration config;
     private boolean killed;
     private String query;
 
+    private SSHTunnel tunnel;
+    private Connection connection;
+
     public SQL() {
         this.reloadConfig();
-        this.url = "jdbc:mysql://" + this.config.getString("sql.host") + ":" + this.config.getString("sql.port") + "/" + this.config.getString("sql.db");
+
+        String host = this.config.getString("sql.host");
+        String db = this.config.getString("sql.db");
+        int port = this.config.getInt("sql.port");
+
         this.username = this.config.getString("sql.user");
         this.password = this.config.getString("sql.pass");
+        this.table = this.config.getString("sql.table");
+        this.server = this.config.getString("server-name");
+
+        if (this.config.getBoolean("tunnel.enabled")) {
+            try {
+                this.tunnel = new SSHTunnel(this.config, host, port);
+            } catch (JSchException e) {
+                this.url = null;
+                EndlessOnline.getInstance().getLogger().severe("Error when configuring SSH tunnel: " + e);
+                this.killed = true;
+                return;
+            }
+
+            this.url = "jdbc:mysql://localhost:" + this.tunnel.getLocalPort() + "/" + db;
+        } else {
+            this.url = "jdbc:mysql://" + host + ":" + port + "/" + db;
+            this.tunnel = null;
+        }
+
+        try {
+            this.connect();
+            EndlessOnline.getInstance().getLogger().info("Test SQL connection was successful!");
+            this.disconnect();
+        } catch (SQLException | JSchException e) {
+            this.killed = true;
+            EndlessOnline.getInstance().getLogger().severe("Test SQL connection failed: " + e);
+            e.printStackTrace();
+            return;
+        }
+
         this.killed = false;
+    }
+
+    private void connect() throws SQLException, JSchException {
+        if (this.tunnel != null) {
+            this.tunnel.connect();
+        }
+
+        if (this.connection != null && !this.connection.isClosed()) {
+            this.connection.close();
+        }
+
+        this.connection = DriverManager.getConnection(this.url, this.username, this.password);
+    }
+
+    private void disconnect() throws SQLException {
+        if (this.tunnel != null) {
+            this.tunnel.disconnect();
+        }
+
+        if (this.connection != null && !this.connection.isClosed()) {
+            this.connection.close();
+        }
     }
 
     private void executeQuery() {
@@ -46,51 +108,76 @@ class SQL {
         this.executor.run();
     }
 
-    public void reloadConfig() {
+    void reloadConfig() {
         this.config = EndlessOnline.getInstance().getConfig();
     }
 
-    public void clearOnline() {
-        this.updateOnline(-1, new ArrayList<String>(0));
+    void clearOnline(int maxOnline) {
+        this.updateOnline(-1, maxOnline, new ArrayList<String>(0));
     }
 
-    public void updateOnline(int online, List<String> playerList) {
-        this.query = "UPDATE " + this.config.getString("sql.table")
-                + " SET online = " + online
-                + ", max_online = " + Bukkit.getMaxPlayers()
-                + ", players = '" + playerList + "' "
-                + "WHERE server = '" + this.config.getString("server-name") + "';";
+    void updateOnline(int online, int maxOnline, List<String> playerList) {
+        this.query = "UPDATE " + this.table + " SET \n" +
+                "  online = " + online + ", \n" +
+                "  capacity = " + Bukkit.getMaxPlayers() + ", \n" +
+                "  players = '" + playerList + "',\n" +
+                "  max_online = " + maxOnline + "\n" +
+                "WHERE server = '" + this.server + "'";
         this.executeQuery();
     }
 
-    public boolean tableExists() {
+    boolean tableExists() {
         EndlessOnline.getInstance().getLogger().info("Checking the existence of the table...");
         try {
-            Connection conn = DriverManager.getConnection(SQL.this.url, SQL.this.username, SQL.this.password);
-            DatabaseMetaData meta = conn.getMetaData();
-            ResultSet rs = meta.getTables(null, null, this.config.getString("sql.table"), null);
+            this.connect();
+            DatabaseMetaData meta = this.connection.getMetaData();
+            ResultSet rs = meta.getTables(null, null, this.table, null);
 
             if (rs.next()) {
                 return true;
             }
-        } catch (SQLException e) {
+
+            this.disconnect();
+        } catch (SQLException | JSchException e) {
             this.killed = true;
-            EndlessOnline.getInstance().getLogger().severe("SQL Error: " + e);
+            EndlessOnline.getInstance().getLogger().severe("Connection to DB failed: " + e);
         }
 
         return false;
     }
 
-    public boolean serverExists() {
+    int getMaxOnline() {
+        try {
+            this.connect();
+            PreparedStatement statement = this.connection.prepareStatement("SELECT max_online, last_update FROM " + this.table +
+                    " WHERE server = '" + this.server + "'");
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("max_online");
+            }
+
+            this.disconnect();
+        } catch (SQLException | JSchException e) {
+            this.killed = true;
+            e.printStackTrace();
+        }
+
+        return -1;
+    }
+
+    boolean serverExists() {
         EndlessOnline.getInstance().getLogger().info("Checking the server existence in the table...");
         try {
-            Connection conn = DriverManager.getConnection(SQL.this.url, SQL.this.username, SQL.this.password);
-            PreparedStatement statement = conn.prepareStatement("SELECT 1 FROM " + this.config.getString("sql.table") + " WHERE server = '" + this.config.getString("server-name") + "'");
+            this.connect();
+            PreparedStatement statement = this.connection.prepareStatement("SELECT 1 FROM " + this.table +
+                    " WHERE server = '" + this.server + "'");
             ResultSet rs = statement.executeQuery();
             if (rs.next()) {
                 return true;
             }
-        } catch (SQLException e) {
+
+            this.disconnect();
+        } catch (SQLException | JSchException e) {
             this.killed = true;
             e.printStackTrace();
         }
@@ -98,21 +185,24 @@ class SQL {
         return false;
     }
 
-    public void createTable() {
+    void createTable() {
         EndlessOnline.getInstance().getLogger().info("Creating table...");
-        this.query = "CREATE TABLE " + this.config.getString("sql.table") + " (\n" +
-                "server varchar(30) NOT NULL,\n" +
-                "online int(3) DEFAULT '-1',\n" +
-                "max_online int(3) NOT NULL,\n" +
-                "players varchar(8000) DEFAULT NULL);";
+        this.query = "CREATE TABLE " + this.table + " (\n" +
+                "  server         VARCHAR(30)   NOT NULL,\n" +
+                "  online         INT(4)        DEFAULT '-1',\n" +
+                "  capacity       INT(4)        NOT NULL,\n" +
+                "  players        VARCHAR(8000) DEFAULT NULL,\n" +
+                "  max_online     INT(4)        DEFAULT '0',\n" +
+                "  last_update    TIMESTAMP     NOT NULL\n" +
+                ")";
         this.executeQuery();
         this.addServer();
     }
 
-    public void addServer() {
+    void addServer() {
         EndlessOnline.getInstance().getLogger().info("Adding server to table...");
-        this.query = "INSERT INTO " + this.config.getString("sql.table") + " (server, max_online) " +
-                "VALUE ('" + this.config.getString("server-name") + "', " + Bukkit.getMaxPlayers() + ");";
+        this.query = "INSERT INTO " + this.table + " (server, capacity)\n" +
+                "  VALUE ('" + this.server + "', " + Bukkit.getMaxPlayers() + ")";
         this.executeQuery();
 
         try {
@@ -125,7 +215,7 @@ class SQL {
         }
     }
 
-    public boolean isKilled() {
+    boolean isKilled() {
         return this.killed;
     }
 
@@ -133,11 +223,12 @@ class SQL {
         @Override
         public void run() {
             try {
-                Connection conn = DriverManager.getConnection(SQL.this.url, SQL.this.username, SQL.this.password);
-                PreparedStatement statement = conn.prepareStatement(SQL.this.query);
+                SQL.this.connect();
+                PreparedStatement statement = SQL.this.connection.prepareStatement(SQL.this.query);
                 statement.executeUpdate();
-            } catch (SQLException e) {
-                EndlessOnline.getInstance().getLogger().severe("SQL Error: " + e);
+                SQL.this.disconnect();
+            } catch (SQLException | JSchException e) {
+                EndlessOnline.getInstance().getLogger().severe("Connection to DB failed: " + e);
                 SQL.this.killed = true;
             }
         }
