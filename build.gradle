@@ -8,7 +8,6 @@ version '2.5.1-SNAPSHOT'
 
 bukkit {
     meta {
-        main = pluginMain
         authors = ["OsipXD", "EndlessCodeGroup"]
     }
 
@@ -16,4 +15,8 @@ bukkit {
         eula = true
         dir = "../DevServer"
     }
+}
+
+dependencies {
+    compile group: "com.jcraft", name: "jsch", version: "0.1.54"
 }
