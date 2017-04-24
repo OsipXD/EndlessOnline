@@ -1,0 +1,19 @@
+plugins {
+    id 'ru.endlesscode.bukkitgradle' version '0.5.8'
+}
+
+group 'ru.endlesscode'
+description 'API for integration with Bukkit RPG plugins'
+version '2.5.1-SNAPSHOT'
+
+bukkit {
+    meta {
+        main = pluginMain
+        authors = ["OsipXD", "EndlessCodeGroup"]
+    }
+
+    run {
+        eula = true
+        dir = "../DevServer"
+    }
+}

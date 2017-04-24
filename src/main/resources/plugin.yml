@@ -1,0 +1,10 @@
+commands:
+  eonline:
+    usage: /<command> reload - Reload plugin.
+    aliases: [eon]
+
+permissions:
+  eonline.refresh:
+    default: op
+  eonline.reload:
+    default: op
